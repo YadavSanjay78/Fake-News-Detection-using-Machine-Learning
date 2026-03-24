@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard - Fake News Detector</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .container {
+            width: min(1200px, calc(100% - 32px));
+            margin: 40px auto;
+            background: rgba(255,255,255,0.1);
+            padding: 24px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .back-link {
+            color: #ffffff;
+            text-decoration: none;
+            font-weight: bold;
+            min-height: 44px;
+            line-height: 44px;
+            padding: 0 10px;
+            display: inline-block;
+        }
+
+        .charts {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background: rgba(255,255,255,0.12);
+            border-radius: 12px;
+            padding: 18px;
+        }
+
+        .card canvas {
+            width: 100% !important;
+            height: 280px !important;
+        }
+
+        .error {
+            background: rgba(255, 99, 132, 0.2);
+            border: 1px solid rgba(255, 99, 132, 0.7);
+            border-radius: 10px;
+            padding: 14px;
+        }
+
+        @media (max-width: 900px) {
+            .container {
+                margin: 20px auto;
+                padding: 16px;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            .back-link {
+                width: 100%;
+                box-sizing: border-box;
+            }
+
+            .header h1 {
+                margin: 0;
+                font-size: 1.5rem;
+            }
+
+            .charts {
+                grid-template-columns: 1fr;
+            }
+
+            .card {
+                padding: 14px;
+            }
+
+            .card canvas {
+                height: 240px !important;
+            }
+        }
+
+        @media (max-width: 420px) {
+            .container {
+                width: calc(100% - 20px);
+                padding: 12px;
+            }
+
+            .header h1 {
+                font-size: 1.3rem;
+            }
+
+            .card h3 {
+                font-size: 1rem;
+                margin-top: 0;
+            }
+
+            .card canvas {
+                height: 220px !important;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>📊 Graph Dashboard</h1>
+        <a class="back-link" href="/">← Back to Detector</a>
+    </div>
+
+    {% if metrics.error %}
+        <div class="error">{{ metrics.error }}</div>
+    {% else %}
+        <div class="charts">
+            <div class="card">
+                <h3>Class Distribution</h3>
+                <canvas id="classChart"></canvas>
+            </div>
+
+            <div class="card">
+                <h3>Average Text Length (Words)</h3>
+                <canvas id="lengthChart"></canvas>
+            </div>
+
+            <div class="card" style="grid-column: 1 / -1;">
+                <h3>Top Subjects</h3>
+                <canvas id="subjectChart"></canvas>
+            </div>
+
+            <div class="card">
+                <h3>Prediction History (Totals)</h3>
+                <canvas id="predictionTotalsChart"></canvas>
+            </div>
+
+            <div class="card">
+                <h3>Prediction Trend (Last 25 Predictions)</h3>
+                <canvas id="predictionTrendChart"></canvas>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+{% if not metrics.error %}
+<script>
+    const labels = {{ metrics.labels | tojson }};
+    const counts = {{ metrics.counts | tojson }};
+    const avgTextLength = {{ metrics.avg_text_length | tojson }};
+    const subjects = {{ metrics.subjects | tojson }};
+    const subjectCounts = {{ metrics.subject_counts | tojson }};
+    const predictionLabels = {{ metrics.prediction_labels | tojson }};
+    const predictionCounts = {{ metrics.prediction_counts | tojson }};
+    const predictionTimelineLabels = {{ metrics.prediction_timeline_labels | tojson }};
+    const predictionTimelineFake = {{ metrics.prediction_timeline_fake | tojson }};
+    const predictionTimelineReal = {{ metrics.prediction_timeline_real | tojson }};
+
+    new Chart(document.getElementById('classChart'), {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: counts,
+                backgroundColor: ['#ff6384', '#36a2eb']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: {
+                        color: '#ffffff'
+                    }
+                }
+            }
+        }
+    });
+
+    new Chart(document.getElementById('lengthChart'), {
+        type: 'bar',
+        data: {
+            labels: ['fake', 'real'],
+            datasets: [{
+                label: 'Avg words',
+                data: avgTextLength,
+                backgroundColor: ['#ff6384', '#36a2eb']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        color: '#ffffff'
+                    },
+                    grid: {
+                        color: 'rgba(255,255,255,0.2)'
+                    }
+                },
+                x: {
+                    ticks: {
+                        color: '#ffffff'
+                    },
+                    grid: {
+                        color: 'rgba(255,255,255,0.1)'
+                    }
+                }
+            }
+        }
+    });
+
+    new Chart(document.getElementById('subjectChart'), {
+        type: 'bar',
+        data: {
+            labels: subjects,
+            datasets: [{
+                label: 'Articles',
+                data: subjectCounts,
+                backgroundColor: '#4bc0c0'
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: {
+                        color: '#ffffff'
+                    },
+                    grid: {
+                        color: 'rgba(255,255,255,0.2)'
+                    }
+                },
+                y: {
+                    ticks: {
+                        color: '#ffffff'
+                    },
+                    grid: {
+                        color: 'rgba(255,255,255,0.1)'
+                    }
+                }
+            }
+        }
+    });
+
+    new Chart(document.getElementById('predictionTotalsChart'), {
+        type: 'bar',
+        data: {
+            labels: predictionLabels,
+            datasets: [{
+                label: 'Predictions made',
+                data: predictionCounts,
+                backgroundColor: ['#ff6384', '#36a2eb']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        color: '#ffffff'
+                    },
+                    grid: {
+                        color: 'rgba(255,255,255,0.2)'
+                    }
+                },
+                x: {
+                    ticks: {
+                        color: '#ffffff'
+                    },
+                    grid: {
+                        color: 'rgba(255,255,255,0.1)'
+                    }
+                }
+            }
+        }
+    });
+
+    new Chart(document.getElementById('predictionTrendChart'), {
+        type: 'line',
+        data: {
+            labels: predictionTimelineLabels,
+            datasets: [
+                {
+                    label: 'Fake total',
+                    data: predictionTimelineFake,
+                    borderColor: '#ff6384',
+                    backgroundColor: '#ff6384',
+                    tension: 0.2
+                },
+                {
+                    label: 'Real total',
+                    data: predictionTimelineReal,
+                    borderColor: '#36a2eb',
+                    backgroundColor: '#36a2eb',
+                    tension: 0.2
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: {
+                        color: '#ffffff'
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        color: '#ffffff'
+                    },
+                    grid: {
+                        color: 'rgba(255,255,255,0.2)'
+                    }
+                },
+                x: {
+                    ticks: {
+                        color: '#ffffff'
+                    },
+                    grid: {
+                        color: 'rgba(255,255,255,0.1)'
+                    }
+                }
+            }
+        }
+    });
+</script>
+{% endif %}
+</body>
+</html>
